@@ -1,0 +1,19 @@
+# 运行时生成的用户数据（含账号密码哈希，切勿提交）
+data/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 环境变量 / 密钥
+.env
+.env.*
+
+# 编辑器 / 系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
