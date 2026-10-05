@@ -431,8 +431,8 @@
     <h1>森系记账本</h1>
     <div class="subtitle">记录每一笔小确幸</div>
     <div class="welcome" id="welcomeRow">
-      欢迎，<span id="usernameSpan"></span><span class="mode-tag" id="modeTag">检测中…</span>
-      <span class="logout-link" onclick="logout()">退出</span>
+      <span class="mode-tag" id="modeTag">📱 本地</span>
+      <span class="logout-link" onclick="logout()">清空数据</span>
     </div>
   </div>
 
@@ -664,33 +664,9 @@
 <script>
   // ================= 基础工具 =================
   const STORE_USERS = 'forestUsers';
-  const STORE_TOKEN = 'forestToken';
   const STORE_USERNAME = 'forestUsername';
   const FALLBACK_DEFAULTS = { eat: 600, snack: 100, want: 520, misc: 80 };
   const CAT_LABEL = { eat: '吃饭', snack: '零食', want: '想干啥干啥', misc: '杂花' };
-  // ===== 跨页跳转 =====
-  // 由 server.py 同源托管前端与后端，直接使用相对路径即可。
-  function pageUrl(name) {
-    return './' + name + '.html';
-  }
-
-  // ===== 后端地址 =====
-  // 默认同源（server.py 同时托管前端时零配置）。
-  // 前端单独托管在静态站、后端在别处时，首次访问带 ?api=https://后端地址 即可，
-  // 之后会记在本地；也可以在构建时把 DEFAULT_API_BASE 写死。
-  const DEFAULT_API_BASE = '';
-  function apiBase() {
-    let q = '';
-    try {
-      const m = /[?&]api=([^&]+)/.exec((typeof location !== 'undefined' && location.search) || '');
-      if (m) q = decodeURIComponent(m[1]);
-    } catch (e) { }
-    if (q) store.set('forestApiBase', q);
-    const base = q || store.get('forestApiBase') || DEFAULT_API_BASE;
-    return String(base).replace(/\/+$/, '');
-  }
-  function apiUrl(path) { return apiBase() + path; }
-  function usingRemoteApi() { return !!apiBase(); }
 
   // ===== localStorage 安全封装：被沙箱限制时退回内存，避免整页白屏 =====
   const memStore = {};
@@ -701,11 +677,10 @@
   };
 
 
-  let backend = 'detecting';
   let currentUsername = '';
   let editing = false;
 
-  // 账户默认数据：注册时设置；每月 1 号 04:00 重置时恢复
+  // 账户默认数据：每月 1 号 04:00 重置时恢复
   let defaults = { ...FALLBACK_DEFAULTS };
   // 本月基准预算
   let budgets = { ...FALLBACK_DEFAULTS };
@@ -1269,8 +1244,7 @@
     }
   }
 
-  // ================= 云端 / 本地存储 =================
-  function getToken() { return store.get(STORE_TOKEN) || ''; }
+  // ================= 本地存储（纯前端单机版）=================
   function getUsers() {
     try { return JSON.parse(store.get(STORE_USERS) || '{}'); } catch (e) { return {}; }
   }
@@ -1288,38 +1262,11 @@
     e2.textContent = text;
   }
 
-  // 严格判断探测响应是不是我们后端返回的 JSON：
-  // 纯静态托管对未知路径常回 200 + HTML，不能只看 res.ok
-  async function isOurApi(res) {
-    if (!res || !res.ok) return false;
-    try {
-      const j = await res.json();
-      return !!j && typeof j === 'object' && ('success' in j);
-    } catch (e) { return false; }
-  }
-
-  async function detectBackend() {
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 1800);
-      const res = await fetch(apiUrl('/api/login'), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: '__probe__', password: '__probe__' }),
-        signal: ctrl.signal
-      });
-      clearTimeout(t);
-      backend = (await isOurApi(res)) ? 'cloud' : 'local';
-    } catch (e) {
-      backend = 'local';
-    }
-    updateModeTag();
-  }
-
   function updateModeTag() {
     const tag = el('modeTag');
     if (!tag) return;
-    if (backend === 'cloud') { tag.textContent = '☁️ 云端'; tag.className = 'mode-tag cloud'; }
-    else { tag.textContent = '📱 本地'; tag.className = 'mode-tag local'; }
+    tag.textContent = '📱 本地';
+    tag.className = 'mode-tag local';
   }
 
   function collectData() {
@@ -1394,37 +1341,20 @@
     el('miscWasher').value = num(misc.washer) ? misc.washer : '';
   }
 
-  let uploadTimer = null;
-  function uploadCloudData(data) {
-    const token = getToken();
-    if (!token) return;
-    clearTimeout(uploadTimer);
-    uploadTimer = setTimeout(async () => {
-      if (backend === 'cloud') {
-        setSyncStatus('syncing', '同步中…');
-        try {
-          const res = await fetch(apiUrl('/api/data'), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'X-Auth-Token': token },
-            body: JSON.stringify({ data: data })
-          });
-          if (res.ok) setSyncStatus('ok', '已同步'); else setSyncStatus('error', '同步失败');
-        } catch (e) { setSyncStatus('error', '离线'); }
-      } else {
-        const users = getUsers();
-        if (currentUsername && users[currentUsername]) {
-          users[currentUsername].data = data;
-          saveUsers(users);
-          setSyncStatus('ok', '已保存');
-        }
-      }
-    }, 400);
+  // 纯前端单机版：数据全部保存到浏览器 localStorage
+  function saveToLocal(data) {
+    saveLocalCache(data);
+    const users = getUsers();
+    if (currentUsername && users[currentUsername]) {
+      users[currentUsername].data = data;
+      saveUsers(users);
+    }
+    setSyncStatus('ok', '已保存');
   }
 
   function saveData() {
     const data = collectData();
-    saveLocalCache(data);
-    uploadCloudData(data);
+    saveToLocal(data);
   }
 
   let autoSaveTimer = null;
@@ -1433,43 +1363,13 @@
     autoSaveTimer = setTimeout(saveData, 500);
   }
 
-  async function flushSave() {
+  function flushSave() {
     clearTimeout(autoSaveTimer);
-    const data = collectData();
-    saveLocalCache(data);
-    const token = getToken();
-    if (!token) return;
-    if (backend === 'cloud') {
-      try {
-        await fetch(apiUrl('/api/data'), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
-          body: JSON.stringify({ data: data })
-        });
-        setSyncStatus('ok', '已同步');
-      } catch (e) { setSyncStatus('error', '离线'); }
-    } else {
-      const users = getUsers();
-      if (currentUsername && users[currentUsername]) {
-        users[currentUsername].data = data;
-        saveUsers(users);
-        setSyncStatus('ok', '已保存');
-      }
-    }
+    saveToLocal(collectData());
   }
 
-  async function fetchCloudData() {
-    if (backend === 'cloud') {
-      try {
-        const res = await fetch(apiUrl('/api/data'), {
-          headers: { 'Authorization': 'Bearer ' + getToken(), 'X-Auth-Token': getToken() }
-        });
-        if (res.status === 401) return null;
-        const result = await res.json();
-        if (result.success) return result.data;
-        return null;
-      } catch (e) { return undefined; }
-    }
+  // 纯前端单机版：直接从 localStorage 读取
+  function fetchLocalData() {
     const users = getUsers();
     if (currentUsername && users[currentUsername]) return users[currentUsername].data || {};
     return {};
@@ -1487,12 +1387,13 @@
     } catch (e) { }
   }
 
-  async function logout() {
-    if (!confirm('确定要退出登录吗？\n数据已保存，下次登录可恢复。')) return;
-    await flushSave();
-    store.del(STORE_TOKEN);
-    store.del(STORE_USERNAME);
-    location.href = pageUrl('login');
+  function logout() {
+    if (!confirm('确定要清空本机数据吗？\n此操作会删除浏览器中保存的账本，且不可恢复！')) return;
+    flushSave();
+    Object.keys(localStorage).forEach(k => {
+      if (k.indexOf('forest') === 0) store.del(k);
+    });
+    location.reload();
   }
 
   // ================= 事件绑定 =================
@@ -1533,31 +1434,17 @@
   });
 
   // ================= 初始化 =================
-  async function init() {
-    currentUsername = store.get(STORE_USERNAME) || '';
-    if (currentUsername) el('usernameSpan').textContent = currentUsername;
-    else el('welcomeRow').style.display = 'none';
+  function init() {
+    currentUsername = store.get(STORE_USERNAME) || '本机用户';
+    updateModeTag();
 
-    const token = getToken();
-    if (!token) { location.href = pageUrl('login'); return; }
-
-    await detectBackend();
-    if (token.indexOf('local:') === 0) { backend = 'local'; updateModeTag(); }
-
-    setSyncStatus('syncing', '拉取数据…');
-    const cloudData = await fetchCloudData();
-    if (cloudData === null && backend === 'cloud') {
-      store.del(STORE_TOKEN);
-      location.href = pageUrl('login');
-      return;
-    }
-    if (cloudData && Object.keys(cloudData).length > 0) {
-      applyData(cloudData);
-      setSyncStatus('ok', '已同步');
+    setSyncStatus('ok', '本地保存');
+    const localData = fetchLocalData();
+    if (localData && Object.keys(localData).length > 0) {
+      applyData(localData);
     } else {
       loadLocalData();
       saveData();
-      setSyncStatus('ok', '已同步');
     }
 
     if (!monthKey) monthKey = currentMonth();
@@ -1572,18 +1459,7 @@
   }
 
   window.addEventListener('beforeunload', () => {
-    const data = collectData();
-    saveLocalCache(data);
-    const token = getToken();
-    if (backend === 'cloud' && token) {
-      try {
-        fetch(apiUrl('/api/data'), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
-          body: JSON.stringify({ data: data }), keepalive: true
-        });
-      } catch (e) { }
-    }
+    saveLocalCache(collectData());
   });
 
   if ('serviceWorker' in navigator) {
