@@ -407,6 +407,12 @@
   .chart-title { font-size: 14px; font-weight: 700; color: #2e7d32; margin: 14px 0 8px; padding-left: 8px; border-left: 3px solid #81c784; }
   .chart-box { background: #fbfff8; border: 1px solid #e8f5e9; border-radius: 14px; padding: 10px 6px 6px; }
   .chart-box svg { display: block; width: 100%; height: auto; }
+  .trend-tip { position: fixed; z-index: 999; display: none; pointer-events: none;
+    background: rgba(46,125,50,0.96); color: #fff; border-radius: 10px;
+    padding: 7px 11px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); transform: translate(-50%, -100%);
+    font-size: 12px; line-height: 1.4; white-space: nowrap; }
+  .trend-tip .tt-label { opacity: 0.9; font-size: 11px; }
+  .trend-tip .tt-val { font-size: 14px; font-weight: 700; }
 
 </style>
 </head>
@@ -576,8 +582,9 @@
 
   <div class="unit-card stats-card">
     <div class="unit-header"><span class="unit-title">📊 消费统计</span></div>
-    <div class="chart-title">📈 近 30 天消费趋势</div>
+    <div class="chart-title">📈 近 7 天消费趋势</div>
     <div class="chart-box" id="trendBox"></div>
+    <div class="trend-tip" id="trendTip"></div>
     <div class="chart-title">🥧 本月各领域消费占比</div>
     <div class="chart-box" id="pieBox"></div>
   </div>
@@ -833,42 +840,95 @@
   function renderTrendSVG() {
     const box = el('trendBox');
     if (!box) return;
-    const W = 340, H = 168, padL = 36, padR = 10, padT = 12, padB = 24;
+    const W = 340, H = 196, padL = 12, padR = 44, padT = 16, padB = 40;
+    const WD = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     const byDate = {};
     (snackRecords || []).forEach(r => { if (r.date) byDate[r.date] = (byDate[r.date] || 0) + num(r.amount); });
     (wantRecords || []).forEach(r => { if (r.date) byDate[r.date] = (byDate[r.date] || 0) + num(r.amount); });
-    const vals = [];
-    for (let i = 29; i >= 0; i--) {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
       const k = dateStr(d); const er = eatDaily[k] || {};
-      vals.push(num(er.b) + num(er.l) + num(er.d) + (byDate[k] || 0));
+      const val = round2(num(er.b) + num(er.l) + num(er.d) + (byDate[k] || 0));
+      days.push({ d: d, val: val });
     }
-    const max = Math.max(1, Math.ceil(Math.max.apply(null, vals)));
+    const maxVal = Math.max.apply(null, days.map(x => x.val));
+    const max = niceMax(maxVal);
     const iw = W - padL - padR, ih = H - padT - padB;
-    const pts = vals.map((v, i) => {
-      const x = padL + iw * i / 29;
-      const y = padT + ih * (1 - v / max);
-      return [x.toFixed(1), y.toFixed(1)];
+    const pts = days.map((x, i) => {
+      const px = padL + iw * i / 6;
+      const py = padT + ih * (1 - x.val / max);
+      return { px: px, py: py, val: x.val, d: x.d };
     });
-    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' ');
-    const area = 'M' + pts[0][0] + ' ' + (padT + ih) + 'L' + line.slice(1) + 'L' + pts[29][0] + ' ' + (padT + ih) + 'Z';
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p.px.toFixed(1) + ' ' + p.py.toFixed(1)).join(' ');
+    const area = 'M' + pts[0].px.toFixed(1) + ' ' + (padT + ih) + 'L' + line.slice(1) + 'L' + pts[6].px.toFixed(1) + ' ' + (padT + ih) + 'Z';
     let grid = '';
     for (let g = 0; g <= 4; g++) {
       const y = (padT + ih * g / 4).toFixed(1);
       grid += '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '" stroke="rgba(0,0,0,0.05)" stroke-width="1"/>';
     }
-    let xlabels = '';
-    for (let i = 0; i < 30; i += 5) {
-      const d = new Date(); d.setDate(d.getDate() - (29 - i));
-      const x = (padL + iw * i / 29).toFixed(1);
-      xlabels += '<text x="' + x + '" y="' + (H - 6) + '" font-size="9" fill="#9ccc9c" text-anchor="middle">' + (d.getMonth() + 1) + '/' + d.getDate() + '</text>';
+    let ylabels = '';
+    for (let g = 0; g <= 4; g++) {
+      const val = max * (4 - g) / 4;
+      const y = (padT + ih * g / 4 + 3).toFixed(1);
+      ylabels += '<text x="' + (W - padR + 6) + '" y="' + y + '" font-size="9" fill="#9ccc9c">¥' + fmt(val) + '</text>';
     }
-    const dots = pts.map(p => '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="2" fill="#2e7d32"/>').join('');
+    let xlabels = '';
+    let hits = '';
+    for (let i = 0; i < 7; i++) {
+      const p = pts[i], d = p.d;
+      const px = p.px.toFixed(1);
+      const wd = WD[d.getDay()];
+      const md = (d.getMonth() + 1) + '/' + d.getDate();
+      xlabels += '<text x="' + px + '" y="' + (H - 22) + '" font-size="9" fill="#6b9a6b" text-anchor="middle">' + wd + '</text>' +
+        '<text x="' + px + '" y="' + (H - 9) + '" font-size="9" fill="#9ccc9c" text-anchor="middle">' + md + '</text>';
+      const tipLbl = wd + ' ' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+      hits += '<circle cx="' + px + '" cy="' + p.py.toFixed(1) + '" r="13" fill="transparent" data-tip="1" onmouseenter="showTrendTip(event,\'' + tipLbl + '\',' + p.val + ')" onmouseleave="hideTrendTip()" onclick="showTrendTip(event,\'' + tipLbl + '\',' + p.val + ')"/>';
+    }
+    const dots = pts.map(p => '<circle cx="' + p.px.toFixed(1) + '" cy="' + p.py.toFixed(1) + '" r="2.5" fill="#2e7d32"/>').join('');
     box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' + grid +
       '<path d="' + area + '" fill="rgba(67,160,71,0.12)"/>' +
       '<path d="' + line + '" fill="none" stroke="#43a047" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
-      dots + xlabels + '</svg>';
+      dots + xlabels + ylabels + hits + '</svg>';
   }
+
+  function niceMax(v) {
+    if (v <= 0) return 4;
+    const raw = v / 4;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const norm = raw / mag;
+    let step;
+    if (norm <= 1) step = 1;
+    else if (norm <= 2) step = 2;
+    else if (norm <= 2.5) step = 2.5;
+    else if (norm <= 5) step = 5;
+    else step = 10;
+    return step * mag * 4;
+  }
+
+  function showTrendTip(evt, label, val) {
+    const tip = el('trendTip');
+    if (!tip) return;
+    tip.innerHTML = '<div class="tt-label">' + escapeHtml(label) + '</div><div class="tt-val">¥' + fmt(val) + '</div>';
+    tip.style.display = 'block';
+    let left = evt.clientX, top = evt.clientY;
+    const half = 72;
+    if (left < half) left = half;
+    if (left > window.innerWidth - half) left = window.innerWidth - half;
+    if (top < 46) top = 46;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  }
+
+  function hideTrendTip() {
+    const tip = el('trendTip');
+    if (tip) tip.style.display = 'none';
+  }
+
+  document.addEventListener('pointerdown', function (e) {
+    if (e.target && e.target.getAttribute && e.target.getAttribute('data-tip') === '1') return;
+    hideTrendTip();
+  });
 
   function renderPieSVG() {
     const box = el('pieBox');
