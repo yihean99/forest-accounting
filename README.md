@@ -25,7 +25,7 @@
 ##  技术栈
 
 - **前端**：原生 HTML / CSS / JavaScript，零框架、零外部 CDN、零构建工具。
-- **单文件**：所有 HTML / CSS / JS 内联在 `static/index.html` 一个文件里。
+- **单文件**：所有 HTML / CSS / JS 内联在根目录的 `index.html` 一个文件里。
 - **数据**：浏览器 `localStorage`，无需任何服务器。
 - **后端**：**无**。
 
@@ -33,32 +33,31 @@
 
 ### 方式一：直接双击打开（最简单）
 
-下载或 clone 本项目，双击 `static/index.html` 即可开始记账。
+下载或 clone 本项目，双击根目录下的 `index.html` 即可开始记账。
 
 ### 方式二：本地起个静态服务（推荐，PWA / 图标更完整）
 
 ```bash
-cd forest-accounting/static
+cd forest-accounting
 python -m http.server 8000
 # 浏览器打开 http://localhost:8000/
 ```
 
 ### 方式三：部署到静态托管
 
-把 `static/` 目录整个上传到 GitHub Pages / Vercel / Netlify / 任意静态空间即可，无需任何构建步骤。
+把项目根目录整个上传到 GitHub Pages / Vercel / Netlify / 任意静态空间即可，无需任何构建步骤。
 
 ##  目录结构
 
 ```
 forest-accounting/
+├── index.html           # 应用主文件（记账主页 + 全部逻辑 + 图表，单文件）
+├── manifest.json        # PWA 配置
+├── sw.js                # Service Worker（离线注册）
+├── icon-192.png         # 应用图标
+├── favicon.png          # 站点图标
 ├── LICENSE              # MIT 许可证
-├── README.md            # 本文件
-└── static/              # 前端静态资源（可直接作为静态站点根目录）
-    ├── index.html       # 应用主文件（记账主页 + 全部逻辑 + 图表，单文件）
-    ├── manifest.json    # PWA 配置
-    ├── sw.js            # Service Worker（离线注册）
-    ├── icon-192.png     # 应用图标
-    └── favicon.png      # 站点图标
+└── README.md            # 本文件
 ```
 
 ##  数据说明
