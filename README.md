@@ -77,4 +77,4 @@ forest-accounting/
 
 ---
 
-欢迎 Fork / Star  一起把记账这件事做得更可爱。
+欢迎 Fork / Star 
