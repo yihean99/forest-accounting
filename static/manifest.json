@@ -2,7 +2,7 @@
   "name": "森系记账本",
   "short_name": "记账本",
   "description": "记录每一笔小确幸",
-  "start_url": "./login.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#e8f5e9",

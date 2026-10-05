@@ -1345,8 +1345,10 @@
   function saveToLocal(data) {
     saveLocalCache(data);
     const users = getUsers();
-    if (currentUsername && users[currentUsername]) {
+    if (currentUsername) {
+      if (!users[currentUsername]) users[currentUsername] = {};
       users[currentUsername].data = data;
+      users[currentUsername].updatedAt = Date.now();
       saveUsers(users);
     }
     setSyncStatus('ok', '已保存');
@@ -1436,6 +1438,7 @@
   // ================= 初始化 =================
   function init() {
     currentUsername = store.get(STORE_USERNAME) || '本机用户';
+    if (!store.get(STORE_USERNAME)) store.set(STORE_USERNAME, currentUsername);
     updateModeTag();
 
     setSyncStatus('ok', '本地保存');
