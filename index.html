@@ -239,7 +239,6 @@
     transition: all 0.2s; font-size: 14px; color: #33691e;
   }
   .want-record-item:hover { background: #e8f5e9; border-color: #a5d6a7; transform: translateY(-1px); }
-  .want-record-tag { font-size: 16px; }
   .want-record-name {
     font-weight: 600; max-width: 90px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -441,7 +440,7 @@
     <h1>森系记账本</h1>
     <div class="subtitle">记录每一笔小确幸</div>
     <div class="welcome" id="welcomeRow">
-      <span class="mode-tag" id="modeTag">📱 本地</span>
+      <span class="mode-tag" id="modeTag">本地</span>
     </div>
   </div>
 
@@ -462,12 +461,11 @@
       <span class="unit">元</span>
     </span>
     <div class="hist-link">
-      <a href="javascript:void(0)" onclick="openHistory()">📅 历史账单</a>
-      <a href="javascript:void(0)" onclick="openDefaultsModal()">⚙ 默认数据</a>
+      <a href="javascript:void(0)" onclick="openHistory()">历史账单</a>
+      <a href="javascript:void(0)" onclick="openDefaultsModal()">默认数据</a>
     </div>
     <div class="hist-link">
-      <a href="javascript:void(0)" onclick="openBackup()">💾 备份 / 恢复</a>
-      <a href="javascript:void(0)" onclick="exportCsv()">📄 导出明细</a>
+      <a href="javascript:void(0)" onclick="openBackup()">备份 / 恢复</a>
     </div>
   </div>
   <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="onImportFile(event)">
@@ -570,11 +568,11 @@
   </div>
 
   <div class="unit-card stats-card">
-    <div class="unit-header"><span class="unit-title">📊 消费统计</span></div>
-    <div class="chart-title">📈 近 7 天消费趋势</div>
+    <div class="unit-header"><span class="unit-title">消费统计</span></div>
+    <div class="chart-title">近 7 天消费趋势</div>
     <div class="chart-box" id="trendBox"></div>
     <div class="trend-tip" id="trendTip"></div>
-    <div class="chart-title">🥧 本月各领域消费占比</div>
+    <div class="chart-title">本月各领域消费占比</div>
     <div class="chart-box" id="pieBox"></div>
   </div>
 </div>
@@ -829,7 +827,6 @@
     }
     c.innerHTML = snackRecords.slice().reverse().map(r =>
       '<span class="want-record-item" onclick="viewSnackRecord(\'' + r.id + '\')">' +
-      '<span class="want-record-tag">🍬</span>' +
       '<span class="want-record-name">' + escapeHtml(r.name || r.date || '零食') + '</span>' +
       '<span class="want-record-amount">¥' + escapeHtml(fmt(r.amount)) + '</span>' +
       '</span>'
@@ -1199,7 +1196,7 @@
       html += '<div class="history-empty" style="padding:14px 0;font-size:13px">该月没有零食记录</div>';
     } else {
       html += d.snackRecords.slice().reverse().map(r =>
-        '<div class="hist-list-item"><span class="lft">🍬 <span class="nm">' + escapeHtml(r.name || '零食') + '</span>' +
+        '<div class="hist-list-item"><span class="lft"><span class="nm">' + escapeHtml(r.name || '零食') + '</span>' +
         '<span class="dt">' + escapeHtml(r.date || '') + '</span></span>' +
         '<span class="am">¥' + escapeHtml(fmt(r.amount)) + '</span></div>'
       ).join('');
@@ -1256,7 +1253,7 @@
   function viewSnackRecord(id) {
     const r = snackRecords.find(x => x.id === id);
     if (!r) return;
-    openRecordView('🍬', (r.name || '零食') + (r.date ? '（' + r.date + '）' : ''), r.amount, function () {
+    openRecordView('', (r.name || '零食') + (r.date ? '（' + r.date + '）' : ''), r.amount, function () {
       snackRecords = snackRecords.filter(x => x.id !== id);
       renderSnackRecords(); saveData(); calculateAll();
     });
@@ -1285,7 +1282,7 @@
     const val = round2(el('snackAddInput').value);
     if (val <= 0) { el('snackAddInput').focus(); return; }
     const name = el('snackAddName').value.trim();
-    snackRecords.push({ id: genId(), name: name, amount: val, date: todayStr(), tag: '🍬' });
+    snackRecords.push({ id: genId(), name: name, amount: val, date: todayStr() });
     closeSnackModal();
     renderSnackRecords(); saveData(); calculateAll();
   }
@@ -1401,7 +1398,7 @@
   function updateModeTag() {
     const tag = el('modeTag');
     if (!tag) return;
-    tag.textContent = '📱 本地';
+    tag.textContent = '本地';
     tag.className = 'mode-tag local';
   }
 
@@ -1454,7 +1451,7 @@
     }
     snackRecords = [];
     if (num(data.snackSpent) > 0) {
-      snackRecords.push({ id: genId(), name: '零食', amount: num(data.snackSpent), date: t || todayStr(), tag: '🍬' });
+      snackRecords.push({ id: genId(), name: '零食', amount: num(data.snackSpent), date: t || todayStr() });
     }
     wantRecords = (Array.isArray(data.wantRecords) ? data.wantRecords : []).map(r =>
       Object.assign({}, r, { date: r.date || t || '' }));
@@ -1612,31 +1609,6 @@
     saveData();
     closeBackupModal();
     setSyncStatus('ok', '导入成功');
-  }
-
-  function exportCsv() {
-    flushSave();
-    const rows = [['日期', '分类', '名称', '金额']];
-    const push = (date, cat, name, amt) => {
-      if (num(amt) <= 0) return;
-      rows.push([date || '', cat, name || '', fmt(amt)]);
-    };
-    Object.keys(eatDaily).sort().forEach(k => {
-      const r = eatDaily[k] || {};
-      push(k, '吃饭', '早餐', r.b);
-      push(k, '吃饭', '午餐', r.l);
-      push(k, '吃饭', '晚餐', r.d);
-    });
-    snackRecords.forEach(r => push(r.date, '零食', r.name || '零食', r.amount));
-    wantRecords.forEach(r => push(r.date, '想干啥干啥', r.name, r.amount));
-    miscRecords.forEach(r => push(r.date, '月度杂花预算', r.name, r.amount));
-    const csv = '\ufeff' + rows.map(row => row.map(cell => {
-      const s = String(cell == null ? '' : cell);
-      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-    }).join(',')).join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    downloadBlob(blob, '森系记账本-明细-' + currentMonth() + '.csv');
-    setSyncStatus('ok', '已导出明细 CSV');
   }
 
   // ================= 事件绑定 =================
