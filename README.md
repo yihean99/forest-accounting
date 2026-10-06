@@ -54,8 +54,7 @@ forest-accounting/
 ├── index.html           # 应用主文件（记账主页 + 全部逻辑 + 图表，单文件）
 ├── manifest.json        # PWA 配置
 ├── sw.js                # Service Worker（离线注册）
-├── icon-192.png         # 应用图标
-├── favicon.png          # 站点图标
+├── icon-192.png         # 应用图标（页头 Logo / 网站图标 / PWA 图标）
 ├── LICENSE              # MIT 许可证
 └── README.md            # 本文件
 ```
