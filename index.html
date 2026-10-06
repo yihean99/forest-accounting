@@ -545,37 +545,21 @@
 
   <div class="unit-card">
     <div class="unit-header">
-      <span class="unit-title">杂花</span>
+      <span class="unit-title">月度杂花预算</span>
       <span class="unit-input-wrapper">
         <input class="unit-input lockable" id="miscBudget" readonly type="text" value="80">
       </span>
       <span class="unit-period">/月</span>
     </div>
     <div class="sub-items">
+      <div class="want-records" id="miscRecords"></div>
       <div class="sub-row">
-        <span class="sub-label">洗澡</span>
+        <span class="sub-label">本月已花费</span>
         <span class="small-input-wrapper">
-          <input class="small-input" id="miscShower" placeholder="0" type="number">
-        </span>
-      </div>
-      <div class="sub-row">
-        <span class="sub-label">水费</span>
-        <span class="small-input-wrapper">
-          <input class="small-input" id="miscWater" placeholder="0" type="number">
-        </span>
-      </div>
-      <div class="sub-row">
-        <span class="sub-label">洗衣机</span>
-        <span class="small-input-wrapper">
-          <input class="small-input" id="miscWasher" placeholder="0" type="number">
-        </span>
-      </div>
-      <div class="sub-row">
-        <span class="sub-label">共</span>
-        <span class="result-box">
-          <input class="result-input" id="miscTotal" readonly type="text" value="0">
+          <input class="small-input" id="miscTotal" readonly type="text" value="0">
         </span>
         <span>元</span>
+        <button aria-label="添加花费" class="round-add-btn" onclick="openMiscAdd()" title="添加花费">＋</button>
       </div>
     </div>
   </div>
@@ -619,6 +603,20 @@
       <input class="modal-input" id="wantAddName" placeholder="消费名称（如：奶茶、电影）" type="text">
       <input class="modal-input" id="wantAddAmount" placeholder="金额（元）" type="number">
       <button class="modal-confirm" onclick="confirmWantAdd()">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="miscModal" onclick="closeMiscModalOnBackdrop(event)" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">添加花费</span>
+      <button class="modal-close" onclick="closeMiscModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input class="modal-input" id="miscAddName" placeholder="花费名称（如：小鲁班、洗澡、话费）" type="text">
+      <input class="modal-input" id="miscAddAmount" placeholder="金额（元）" type="number">
+      <button class="modal-confirm" onclick="confirmMiscAdd()">确定</button>
     </div>
   </div>
 </div>
@@ -703,8 +701,8 @@
   let snackRecords = [];
   let wantRecords = [];
 
-  // 杂花：洗澡 / 水费 / 洗衣机（本月直接录入）
-  let misc = { shower: 0, water: 0, washer: 0 };
+  // 杂花（月度杂花预算）：逐笔记录 { id, name, amount, date }
+  let miscRecords = [];
 
   // 历史月份归档
   let archives = [];
@@ -744,7 +742,7 @@
     return num(r.b) + num(r.l) + num(r.d);
   }
   function recSum(list) { return (list || []).reduce((s, r) => s + num(r.amount), 0); }
-  function miscSum(m) { const x = m || misc; return num(x.shower) + num(x.water) + num(x.washer); }
+  function miscSum(list) { return (list || miscRecords).reduce((s, r) => s + num(r.amount), 0); }
 
   function currentSpent() {
     return {
@@ -825,9 +823,54 @@
     ).join('');
   }
 
+  function renderMiscRecords() {
+    const c = el('miscRecords');
+    if (!c) return;
+    if (!miscRecords.length) {
+      c.innerHTML = '<span class="want-empty">还没有花费记录，点 ＋ 添加吧～</span>';
+      return;
+    }
+    c.innerHTML = miscRecords.slice().reverse().map(r =>
+      '<span class="want-record-item" onclick="viewMiscRecord(\'' + r.id + '\')">' +
+      '<span class="want-record-name">' + escapeHtml(r.name) + '</span>' +
+      '<span class="want-record-amount">¥' + escapeHtml(fmt(r.amount)) + '</span>' +
+      '<span class="want-record-date">' + escapeHtml((r.date || '').slice(5)) + '</span>' +
+      '</span>'
+    ).join('');
+  }
+
+  function openMiscAdd() {
+    el('miscAddName').value = '';
+    el('miscAddAmount').value = '';
+    el('miscModal').style.display = 'flex';
+    setTimeout(() => el('miscAddName').focus(), 50);
+  }
+  function closeMiscModal() { el('miscModal').style.display = 'none'; }
+  function closeMiscModalOnBackdrop(e) { if (e.target === el('miscModal')) closeMiscModal(); }
+  function confirmMiscAdd() {
+    const name = el('miscAddName').value.trim();
+    const amount = round2(el('miscAddAmount').value);
+    if (!name || amount <= 0) {
+      if (!name) el('miscAddName').focus(); else el('miscAddAmount').focus();
+      return;
+    }
+    miscRecords.push({ id: genId(), name: name, amount: amount, date: todayStr() });
+    closeMiscModal();
+    renderMiscRecords(); saveData(); calculateAll();
+  }
+  function viewMiscRecord(id) {
+    const r = miscRecords.find(x => x.id === id);
+    if (!r) return;
+    openRecordView('', r.name + (r.date ? '（' + r.date + '）' : ''), r.amount, function () {
+      miscRecords = miscRecords.filter(x => x.id !== id);
+      renderMiscRecords(); saveData(); calculateAll();
+    });
+  }
+
   function renderAll() {
     renderSnackRecords();
     renderWantRecords();
+    renderMiscRecords();
     calculateAll();
   }
 
@@ -845,6 +888,7 @@
     const byDate = {};
     (snackRecords || []).forEach(r => { if (r.date) byDate[r.date] = (byDate[r.date] || 0) + num(r.amount); });
     (wantRecords || []).forEach(r => { if (r.date) byDate[r.date] = (byDate[r.date] || 0) + num(r.amount); });
+    (miscRecords || []).forEach(r => { if (r.date) byDate[r.date] = (byDate[r.date] || 0) + num(r.amount); });
     const days = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
@@ -1007,7 +1051,7 @@
       eatDaily: JSON.parse(JSON.stringify(eatDaily)),
       snackRecords: snackRecords.map(r => ({ ...r })),
       wantRecords: wantRecords.map(r => ({ ...r })),
-      misc: { ...misc },
+      miscRecords: miscRecords.map(r => ({ ...r })),
       totals: currentSpent(),
       archivedAt: Date.now()
     };
@@ -1021,16 +1065,13 @@
     eatDaily = {};                             // 其他[]内数值均清零
     snackRecords = [];
     wantRecords = [];
-    misc = { shower: 0, water: 0, washer: 0 };
+    miscRecords = [];
     monthKey = newKey;
     lastReset = Date.now();
     lastEatDate = todayStr();
     el('eatA').value = '';
     el('eatB').value = '';
     el('eatC').value = '';
-    el('miscShower').value = '';
-    el('miscWater').value = '';
-    el('miscWasher').value = '';
     renderAll();
     saveData();
   }
@@ -1070,7 +1111,7 @@
 
   function getMonthData(m) {
     if (m === currentMonth()) {
-      return { month: m, budgets, eatDaily, snackRecords, wantRecords, misc, live: true };
+      return { month: m, budgets, eatDaily, snackRecords, wantRecords, miscRecords, live: true };
     }
     const a = archives.find(x => x.month === m);
     return a ? { ...a, live: false } : null;
@@ -1085,7 +1126,7 @@
     const bud = d.budgets || {};
     const spent = {
       eat: eatSpentTotal(d.eatDaily), snack: recSum(d.snackRecords),
-      want: recSum(d.wantRecords), misc: miscSum(d.misc)
+      want: recSum(d.wantRecords), misc: miscSum(d.miscRecords)
     };
     const totalBudget = num(bud.eat) + num(bud.snack) + num(bud.want) + num(bud.misc);
     const totalSpent = spent.eat + spent.snack + spent.want + spent.misc;
@@ -1150,12 +1191,18 @@
     html += '</div>';
 
     // 杂花明细
-    const mm = d.misc || {};
-    html += '<div class="hist-section"><div class="hist-section-title">杂花明细（合计 ' + fmt(spent.misc) + ' 元）</div>' +
-      [['洗澡', mm.shower], ['水费', mm.water], ['洗衣机', mm.washer]].map(pair =>
-        '<div class="hist-list-item"><span class="lft">🧺 <span class="nm">' + pair[0] + '</span></span>' +
-        '<span class="am">¥' + escapeHtml(fmt(pair[1])) + '</span></div>'
-      ).join('') + '</div>';
+    const mrecs = d.miscRecords || [];
+    html += '<div class="hist-section"><div class="hist-section-title">杂花明细（合计 ' + fmt(spent.misc) + ' 元）</div>';
+    if (!mrecs.length) {
+      html += '<div class="history-empty" style="padding:14px 0;font-size:13px">该月没有杂花记录</div>';
+    } else {
+      html += mrecs.slice().reverse().map(r =>
+        '<div class="hist-list-item"><span class="lft"><span class="nm">' + escapeHtml(r.name) + '</span>' +
+        '<span class="dt">' + escapeHtml(r.date || '') + '</span></span>' +
+        '<span class="am">¥' + escapeHtml(fmt(r.amount)) + '</span></div>'
+      ).join('');
+    }
+    html += '</div>';
 
     det.innerHTML = html;
   }
@@ -1341,7 +1388,7 @@
       eatDaily: eatDaily,
       snackRecords: snackRecords,
       wantRecords: wantRecords,
-      misc: { ...misc },
+      miscRecords: miscRecords.map(r => ({ ...r })),
       archives: archives
     };
   }
@@ -1358,7 +1405,7 @@
       eatDaily = (data.eatDaily && typeof data.eatDaily === 'object') ? data.eatDaily : {};
       snackRecords = Array.isArray(data.snackRecords) ? data.snackRecords : [];
       wantRecords = Array.isArray(data.wantRecords) ? data.wantRecords : [];
-      misc = Object.assign({ shower: 0, water: 0, washer: 0 }, data.misc || {});
+      miscRecords = Array.isArray(data.miscRecords) ? data.miscRecords.map(r => ({ id: r.id || genId(), name: r.name || '', amount: num(r.amount), date: r.date || '' })) : [];
       archives = Array.isArray(data.archives) ? data.archives : [];
       return;
     }
@@ -1385,7 +1432,7 @@
     if (!wantRecords.length && data.wantItem && num(data.wantCost) > 0) {
       wantRecords.push({ id: genId(), name: data.wantItem, amount: num(data.wantCost), date: t || '' });
     }
-    misc = { shower: num(data.miscShower), water: num(data.miscWater), washer: num(data.miscWasher) };
+    miscRecords = [];
     archives = [];
     monthKey = monthStr(new Date());
   }
@@ -1396,9 +1443,6 @@
     el('eatA').value = num(r.b) ? r.b : '';
     el('eatB').value = num(r.l) ? r.l : '';
     el('eatC').value = num(r.d) ? r.d : '';
-    el('miscShower').value = num(misc.shower) ? misc.shower : '';
-    el('miscWater').value = num(misc.water) ? misc.water : '';
-    el('miscWasher').value = num(misc.washer) ? misc.washer : '';
   }
 
   // 纯前端单机版：数据全部保存到浏览器 localStorage
@@ -1463,17 +1507,6 @@
     const e2 = el(id);
     if (e2) e2.addEventListener('input', () => {
       syncTodayEatFromInputs();   // 今日输入实时写入「当月每日明细」，月度扣减随之累计
-      calculateAll();
-      scheduleAutoSave();
-    });
-  });
-
-  ['miscShower', 'miscWater', 'miscWasher'].forEach(id => {
-    const e2 = el(id);
-    if (e2) e2.addEventListener('input', () => {
-      misc.shower = num(el('miscShower').value);
-      misc.water = num(el('miscWater').value);
-      misc.washer = num(el('miscWasher').value);
       calculateAll();
       scheduleAutoSave();
     });
