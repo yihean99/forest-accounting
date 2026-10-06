@@ -64,11 +64,6 @@
   }
   .header .welcome .mode-tag.cloud { background: #e3f2fd; color: #1565c0; }
   .header .welcome .mode-tag.local { background: #fff3e0; color: #e65100; }
-  .header .welcome .logout-link {
-    color: #d32f2f; cursor: pointer; font-weight: 600;
-    margin-left: 8px; padding: 2px 8px; border-radius: 8px; transition: all 0.2s;
-  }
-  .header .welcome .logout-link:hover { background: #ffebee; }
 
   .month-card {
     background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
@@ -447,7 +442,6 @@
     <div class="subtitle">记录每一笔小确幸</div>
     <div class="welcome" id="welcomeRow">
       <span class="mode-tag" id="modeTag">📱 本地</span>
-      <span class="logout-link" onclick="logout()">清空数据</span>
     </div>
   </div>
 
@@ -1526,15 +1520,6 @@
       if (!raw) return;
       applyData(JSON.parse(raw));
     } catch (e) { }
-  }
-
-  function logout() {
-    if (!confirm('确定要清空本机数据吗？\n此操作会删除浏览器中保存的账本，且不可恢复！')) return;
-    flushSave();
-    Object.keys(localStorage).forEach(k => {
-      if (k.indexOf('forest') === 0) store.del(k);
-    });
-    location.reload();
   }
 
   // ================= 导入 / 导出（跨设备数据传递）=================
