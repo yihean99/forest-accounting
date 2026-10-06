@@ -7,3 +7,4 @@ Thumbs.db
 # 日志 / 临时文件
 *.log
 *.tmp
+.workbuddy/
