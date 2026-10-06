@@ -328,7 +328,7 @@
   }
 
   /* ===== 新增：历史账单 / 默认数据 ===== */
-  .month-card .hist-link { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .month-card .hist-link { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .month-card .hist-link a {
     color: #ffffff; font-size: 13px; font-weight: 600; text-decoration: none;
     padding: 4px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.2);
@@ -398,6 +398,21 @@
   .modal-hint { font-size: 12px; color: #9ccc9c; line-height: 1.6; }
   .modal-hint b { color: #f57f17; }
 
+  .backup-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .backup-btn {
+    flex: 1; min-width: 120px; padding: 10px 12px; font-size: 14px; font-weight: 700;
+    color: #ffffff; background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
+    border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s; font-family: inherit;
+  }
+  .backup-btn:hover { box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4); }
+  .backup-textarea {
+    width: 100%; min-height: 90px; padding: 10px; font-size: 12px; font-family: monospace;
+    border: 1.5px solid #c5e1a5; border-radius: 10px; outline: none; color: #33691e;
+    background: #f9fdf9; resize: vertical; box-sizing: border-box; word-break: break-all;
+  }
+  .backup-textarea:focus { border-color: #43a047; }
+  .backup-divider { text-align: center; font-size: 13px; font-weight: 700; color: #8d6e63; margin: 6px 0; }
+
   /* ===== 想干啥记录日期（无 emoji 图标） ===== */
   .want-record-date { font-size: 11px; color: #9ccc9c; margin-left: auto; }
 
@@ -462,7 +477,12 @@
       <a href="javascript:void(0)" onclick="openHistory()">📅 历史账单</a>
       <a href="javascript:void(0)" onclick="openDefaultsModal()">⚙ 默认数据</a>
     </div>
+    <div class="hist-link">
+      <a href="javascript:void(0)" onclick="openBackup()">💾 备份 / 恢复</a>
+      <a href="javascript:void(0)" onclick="exportCsv()">📄 导出明细</a>
+    </div>
   </div>
+  <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="onImportFile(event)">
 
   <div class="unit-card">
     <div class="unit-header">
@@ -662,6 +682,30 @@
         这些默认数据会在 <b>每月 1 号凌晨 4:00</b> 自动恢复，其他数值同时清零。
       </div>
       <button class="modal-confirm" onclick="confirmDefaults()">保存默认数据</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="backupModal" onclick="closeBackupOnBackdrop(event)" style="display:none">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">数据备份 / 恢复</span>
+      <button class="modal-close" onclick="closeBackupModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-hint" style="color:#689f38">
+        <b>换设备同步：</b>在本机点「复制全部内容」，把内容发到新设备（微信文件传输助手 / 邮件 / 网盘都行），
+        再在新设备点「粘贴导入」，数据就完整过来了。
+      </div>
+      <div class="backup-btns">
+        <button class="backup-btn" onclick="doExportDownload()">⬇ 下载备份文件</button>
+        <button class="backup-btn" onclick="copyBackup()">📋 复制全部内容</button>
+      </div>
+      <textarea id="backupText" class="backup-textarea" readonly></textarea>
+      <div class="backup-divider">导入恢复</div>
+      <button class="backup-btn" onclick="doImportFile()">⬆ 选择备份文件</button>
+      <textarea id="importText" class="backup-textarea" placeholder="把之前复制的备份内容粘贴到这里，然后点下面的「粘贴导入」"></textarea>
+      <button class="backup-btn" onclick="doImportPaste()">粘贴导入</button>
     </div>
   </div>
 </div>
@@ -1500,6 +1544,123 @@
       if (k.indexOf('forest') === 0) store.del(k);
     });
     location.reload();
+  }
+
+  // ================= 导入 / 导出（跨设备数据传递）=================
+  function backupJson() { return JSON.stringify(collectData(), null, 2); }
+
+  function openBackup() {
+    flushSave();
+    el('backupText').value = backupJson();
+    el('importText').value = '';
+    el('backupModal').style.display = 'flex';
+  }
+  function closeBackupModal() { el('backupModal').style.display = 'none'; }
+  function closeBackupOnBackdrop(e) { if (e.target === el('backupModal')) closeBackupModal(); }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function doExportDownload() {
+    flushSave();
+    const blob = new Blob([backupJson()], { type: 'application/json' });
+    downloadBlob(blob, '森系记账本-备份-' + currentMonth() + '.json');
+    setSyncStatus('ok', '已下载备份文件');
+  }
+
+  function copyBackup() {
+    const text = el('backupText').value;
+    const done = function () { setSyncStatus('ok', '已复制，去新设备粘贴导入即可'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text, done); });
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+  function fallbackCopy(text, done) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { alert('复制失败，请手动全选并复制上面的内容。'); }
+    document.body.removeChild(ta);
+  }
+
+  function doImportFile() {
+    const input = el('importFile');
+    if (input) input.click();
+  }
+
+  function onImportFile(e) {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () { importFromText(reader.result); };
+    reader.readAsText(file);
+    input.value = '';
+  }
+
+  function doImportPaste() {
+    importFromText(el('importText').value);
+  }
+
+  function importFromText(text) {
+    if (!text || !text.trim()) { alert('请先粘贴备份内容'); return; }
+    let data;
+    try {
+      data = JSON.parse(text);
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('bad format');
+    } catch (err) {
+      alert('导入失败：内容格式不正确，请粘贴之前复制的完整备份内容。');
+      return;
+    }
+    if (!confirm('导入将覆盖当前设备上的全部数据，确定继续吗？')) return;
+    applyData(data);
+    if (!monthKey) monthKey = currentMonth();
+    if (!lastReset) lastReset = Date.now();
+    checkAndReset();
+    handleDayRollover(true);
+    restoreInputs();
+    renderAll();
+    saveData();
+    closeBackupModal();
+    setSyncStatus('ok', '导入成功');
+  }
+
+  function exportCsv() {
+    flushSave();
+    const rows = [['日期', '分类', '名称', '金额']];
+    const push = (date, cat, name, amt) => {
+      if (num(amt) <= 0) return;
+      rows.push([date || '', cat, name || '', fmt(amt)]);
+    };
+    Object.keys(eatDaily).sort().forEach(k => {
+      const r = eatDaily[k] || {};
+      push(k, '吃饭', '早餐', r.b);
+      push(k, '吃饭', '午餐', r.l);
+      push(k, '吃饭', '晚餐', r.d);
+    });
+    snackRecords.forEach(r => push(r.date, '零食', r.name || '零食', r.amount));
+    wantRecords.forEach(r => push(r.date, '想干啥干啥', r.name, r.amount));
+    miscRecords.forEach(r => push(r.date, '月度杂花预算', r.name, r.amount));
+    const csv = '\ufeff' + rows.map(row => row.map(cell => {
+      const s = String(cell == null ? '' : cell);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    downloadBlob(blob, '森系记账本-明细-' + currentMonth() + '.csv');
+    setSyncStatus('ok', '已导出明细 CSV');
   }
 
   // ================= 事件绑定 =================
