@@ -57,13 +57,6 @@
   }
   .header h1 { font-size: 26px; color: #2e7d32; font-weight: 700; letter-spacing: 2px; }
   .header .subtitle { font-size: 13px; color: #689f38; margin-top: 6px; opacity: 0.8; }
-  .header .welcome { font-size: 12px; color: #558b2f; margin-top: 4px; opacity: 0.85; }
-  .header .welcome .mode-tag {
-    display: inline-block; padding: 2px 8px; border-radius: 8px;
-    font-size: 11px; font-weight: 600; margin-left: 6px;
-  }
-  .header .welcome .mode-tag.cloud { background: #e3f2fd; color: #1565c0; }
-  .header .welcome .mode-tag.local { background: #fff3e0; color: #e65100; }
 
   .month-card {
     background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
@@ -167,18 +160,21 @@
   }
 
   .status-indicator {
-    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-    background: rgba(255, 255, 255, 0.95); padding: 8px 20px;
+    position: fixed; top: 20px; left: 50%; transform: translate(-50%, -10px);
+    background: rgba(255, 255, 255, 0.96); padding: 8px 20px;
     border-radius: 20px; font-size: 13px; color: #689f38;
-    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15); z-index: 99;
-    border: 1px solid #c5e1a5; transition: all 0.3s;
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.18); z-index: 99;
+    border: 1px solid #c5e1a5;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
   }
   .status-indicator::before {
     content: ""; display: inline-block; width: 10px; height: 10px;
     margin-right: 6px; border-radius: 50%; background: #66bb6a;
     box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.25); vertical-align: middle;
   }
-  .status-indicator.editing { color: #f57c00; border-color: #ffcc80; background: rgba(255, 243, 224, 0.95); }
+  .status-indicator.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+  .status-indicator.editing { color: #f57c00; border-color: #ffcc80; background: rgba(255, 243, 224, 0.97); }
   .status-indicator.editing::before { background: #ff7043; box-shadow: 0 0 0 3px rgba(255, 112, 67, 0.25); }
 
   .sync-indicator {
@@ -316,13 +312,17 @@
   }
 
   /* ===== 新增：历史账单 / 默认数据 ===== */
-  .month-card .hist-link { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  .month-card .hist-link a {
-    color: #ffffff; font-size: 13px; font-weight: 600; text-decoration: none;
-    padding: 4px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.2);
-    transition: all 0.2s;
+  .month-card .hist-link {
+    display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;
   }
-  .month-card .hist-link a:hover { background: rgba(255, 255, 255, 0.35); }
+  .month-card .hist-link a {
+    width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 14px; background: rgba(27, 94, 32, 0.32);
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .month-card .hist-link a:hover { background: rgba(27, 94, 32, 0.46); }
+  .month-card .hist-link a:active { transform: scale(0.94); }
+  .month-card .hist-link a svg { width: 20px; height: 20px; display: block; }
 
   .hist-select {
     width: 100%; padding: 11px 14px; font-size: 15px; font-weight: 600;
@@ -431,7 +431,7 @@
   <svg viewBox="0 0 24 24"><circle cx="12" cy="12" fill="#fff59d" r="6"/><circle cx="12" cy="12" fill="#ffa726" r="2.5"/></svg>
 </div>
 
-<div class="status-indicator" id="statusIndicator">数据已锁定</div>
+<div class="status-indicator" id="statusIndicator"></div>
 <div class="sync-indicator" id="syncIndicator">已同步</div>
 
 <div class="container">
@@ -439,9 +439,6 @@
     <img alt class="header-icon" src="./icon-192.png">
     <h1>森系记账本</h1>
     <div class="subtitle">记录每一笔小确幸</div>
-    <div class="welcome" id="welcomeRow">
-      <span class="mode-tag" id="modeTag">本地</span>
-    </div>
   </div>
 
   <div class="month-card">
@@ -461,11 +458,15 @@
       <span class="unit">元</span>
     </span>
     <div class="hist-link">
-      <a href="javascript:void(0)" onclick="openHistory()">历史账单</a>
-      <a href="javascript:void(0)" onclick="openDefaultsModal()">默认数据</a>
-    </div>
-    <div class="hist-link">
-      <a href="javascript:void(0)" onclick="openBackup()">备份 / 恢复</a>
+      <a href="javascript:void(0)" onclick="openHistory()" title="历史账单" aria-label="历史账单">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </a>
+      <a href="javascript:void(0)" onclick="openDefaultsModal()" title="默认数据" aria-label="默认数据">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </a>
+      <a href="javascript:void(0)" onclick="openBackup()" title="备份 / 恢复" aria-label="备份 / 恢复">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </a>
     </div>
   </div>
   <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="onImportFile(event)">
@@ -1338,12 +1339,22 @@
   }
 
   // ================= 编辑模式（修改本月预算） =================
+  let statusTimer = null;
+  function showStatusToast(text, isEditing) {
+    const status = el('statusIndicator');
+    if (!status) return;
+    clearTimeout(statusTimer);
+    if (isEditing) status.classList.add('editing'); else status.classList.remove('editing');
+    status.textContent = text;
+    status.classList.add('show');
+    statusTimer = setTimeout(() => status.classList.remove('show'), 1600);
+  }
+
   function toggleEdit() {
     const body = document.body;
     const btn = el('editBtn');
     const icon = el('editIcon');
     const text = el('editText');
-    const status = el('statusIndicator');
 
     if (!editing) {
       editing = true;
@@ -1351,8 +1362,7 @@
       btn.classList.add('editing');
       icon.textContent = '✓';
       text.textContent = '保存数据';
-      status.classList.add('editing');
-      status.textContent = '编辑模式';
+      showStatusToast('编辑模式', true);
       ['eatBudget', 'snackBudget', 'wantBudget', 'miscBudget'].forEach(id => el(id).removeAttribute('readonly'));
       renderBudgetInputs();
       renderMonthCard();
@@ -1369,8 +1379,7 @@
       btn.classList.remove('editing');
       icon.textContent = '✎';
       text.textContent = '修改数据';
-      status.classList.remove('editing');
-      status.textContent = '数据已锁定';
+      showStatusToast('数据已锁定', false);
       ['eatBudget', 'snackBudget', 'wantBudget', 'miscBudget'].forEach(id => el(id).setAttribute('readonly', 'readonly'));
       saveData();
       calculateAll();
@@ -1393,13 +1402,6 @@
     if (state === 'syncing') e2.classList.add('syncing');
     if (state === 'error') e2.classList.add('error');
     e2.textContent = text;
-  }
-
-  function updateModeTag() {
-    const tag = el('modeTag');
-    if (!tag) return;
-    tag.textContent = '本地';
-    tag.className = 'mode-tag local';
   }
 
   function collectData() {
@@ -1652,7 +1654,6 @@
   function init() {
     currentUsername = store.get(STORE_USERNAME) || '本机用户';
     if (!store.get(STORE_USERNAME)) store.set(STORE_USERNAME, currentUsername);
-    updateModeTag();
 
     setSyncStatus('ok', '本地保存');
     const localData = fetchLocalData();
