@@ -225,12 +225,6 @@
     font-size: 12px; color: #ffffff; background: #a5d6a7;
     border-radius: 6px; padding: 1px 5px; font-weight: 600; margin: 0 -2px;
   }
-  .history-link-row { display: flex; justify-content: flex-end; margin-top: 6px; }
-  .history-link-row a {
-    font-size: 14px; color: #2e7d32; text-decoration: none;
-    font-weight: 600; padding: 4px 8px; border-radius: 8px; transition: all 0.2s;
-  }
-  .history-link-row a:hover { background: #e8f5e9; color: #1b5e20; }
 
   .round-add-btn {
     width: 32px; height: 32px; border-radius: 50%;
@@ -497,26 +491,23 @@
         <span class="sub-label">今日消费</span>
         <span class="meal-tag">早</span>
         <span class="small-input-wrapper">
-          <input class="small-input" id="eatA" placeholder="0" type="number">
+          <input class="small-input" id="eatA" placeholder="0" type="number" min="0">
         </span>
         <span class="operator">+</span>
         <span class="meal-tag">午</span>
         <span class="small-input-wrapper">
-          <input class="small-input" id="eatB" placeholder="0" type="number">
+          <input class="small-input" id="eatB" placeholder="0" type="number" min="0">
         </span>
         <span class="operator">+</span>
         <span class="meal-tag">晚</span>
         <span class="small-input-wrapper">
-          <input class="small-input" id="eatC" placeholder="0" type="number">
+          <input class="small-input" id="eatC" placeholder="0" type="number" min="0">
         </span>
         <span class="operator">=</span>
         <span class="result-box">
           <input class="result-input" id="eatToday" readonly type="text" value="0">
         </span>
         <span>元</span>
-      </div>
-      <div class="history-link-row">
-        <a href="javascript:void(0)" id="eatHistoryLink" onclick="openHistory()">每日明细 ›</a>
       </div>
     </div>
   </div>
@@ -607,7 +598,7 @@
     </div>
     <div class="modal-body">
       <input class="modal-input" id="snackAddName" placeholder="零食名称（可选，如：薯片）" type="text">
-      <input class="modal-input" id="snackAddInput" placeholder="输入金额（元）" type="number">
+      <input class="modal-input" id="snackAddInput" placeholder="输入金额（元）" type="number" min="0">
       <button class="modal-confirm" onclick="confirmSnackAdd()">确定</button>
     </div>
   </div>
@@ -621,7 +612,7 @@
     </div>
     <div class="modal-body">
       <input class="modal-input" id="wantAddName" placeholder="消费名称（如：奶茶、电影）" type="text">
-      <input class="modal-input" id="wantAddAmount" placeholder="金额（元）" type="number">
+      <input class="modal-input" id="wantAddAmount" placeholder="金额（元）" type="number" min="0">
       <button class="modal-confirm" onclick="confirmWantAdd()">确定</button>
     </div>
   </div>
@@ -635,7 +626,7 @@
     </div>
     <div class="modal-body">
       <input class="modal-input" id="miscAddName" placeholder="花费名称（如：小鲁班、洗澡、话费）" type="text">
-      <input class="modal-input" id="miscAddAmount" placeholder="金额（元）" type="number">
+      <input class="modal-input" id="miscAddAmount" placeholder="金额（元）" type="number" min="0">
       <button class="modal-confirm" onclick="confirmMiscAdd()">确定</button>
     </div>
   </div>
@@ -1688,6 +1679,17 @@
     const e2 = el(id);
     if (e2) e2.addEventListener('input', updateDefaultsMonth);
   });
+
+  // 全局拦截：数字输入框不允许负数（min=0 拦箭头，这里拦手动输入/粘贴的负号）。
+  // 用捕获阶段执行，保证先于业务监听器清理掉负号，负数不会进入数据。
+  document.addEventListener('input', function (e) {
+    const t = e.target;
+    if (!t || t.type !== 'number') return;
+    const v = t.value;
+    if (typeof v === 'string' && v.charAt(0) === '-') {
+      t.value = v.slice(1);
+    }
+  }, true);
 
   // ================= 初始化 =================
   function init() {
