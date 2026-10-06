@@ -681,6 +681,10 @@
         <b>换设备同步：</b>在本机点「复制全部内容」，把内容发到新设备（微信文件传输助手 / 邮件 / 网盘都行），
         再在新设备点「粘贴导入」，数据就完整过来了。
       </div>
+      <div class="modal-hint" style="color:#9ccc9c">
+        提示：如果点「下载备份文件」没反应（部分预览环境会拦截下载），直接用「复制全部内容」即可；
+        或用电脑浏览器（Chrome / Edge）打开本页面，下载功能即正常。
+      </div>
       <div class="backup-btns">
         <button class="backup-btn" onclick="doExportDownload()">⬇ 下载备份文件</button>
         <button class="backup-btn" onclick="copyBackup()">📋 复制全部内容</button>
@@ -1534,14 +1538,24 @@
   function closeBackupOnBackdrop(e) { if (e.target === el('backupModal')) closeBackupModal(); }
 
   function downloadBlob(blob, filename) {
+    // 兼容旧版 Edge / IE
+    if (navigator.msSaveBlob) {
+      navigator.msSaveBlob(blob, filename);
+      return;
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.rel = 'noopener';
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    // 稍后再移除，兼容部分浏览器（如 Safari）需元素仍留在 DOM 才能触发下载
+    setTimeout(function () {
+      if (a.parentNode) a.parentNode.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1500);
   }
 
   function doExportDownload() {
