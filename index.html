@@ -144,39 +144,6 @@
   body.locked .lockable { pointer-events: none; user-select: none; opacity: 0.9; }
   .lockable { transition: all 0.2s; }
 
-  .edit-btn {
-    position: fixed; bottom: 30px; right: 30px;
-    background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
-    color: white; border: none; border-radius: 50px;
-    padding: 14px 28px; font-size: 16px; font-weight: 600;
-    cursor: pointer; box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
-    transition: all 0.3s ease; z-index: 100; font-family: inherit;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .edit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(76, 175, 80, 0.5); }
-  .edit-btn.editing {
-    background: linear-gradient(135deg, #ff7043 0%, #f57c00 100%);
-    box-shadow: 0 6px 20px rgba(245, 124, 0, 0.4);
-  }
-
-  .status-indicator {
-    position: fixed; top: 20px; left: 50%; transform: translate(-50%, -10px);
-    background: rgba(255, 255, 255, 0.96); padding: 8px 20px;
-    border-radius: 20px; font-size: 13px; color: #689f38;
-    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.18); z-index: 99;
-    border: 1px solid #c5e1a5;
-    opacity: 0; visibility: hidden; pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
-  }
-  .status-indicator::before {
-    content: ""; display: inline-block; width: 10px; height: 10px;
-    margin-right: 6px; border-radius: 50%; background: #66bb6a;
-    box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.25); vertical-align: middle;
-  }
-  .status-indicator.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
-  .status-indicator.editing { color: #f57c00; border-color: #ffcc80; background: rgba(255, 243, 224, 0.97); }
-  .status-indicator.editing::before { background: #ff7043; box-shadow: 0 0 0 3px rgba(255, 112, 67, 0.25); }
-
   .sync-indicator {
     position: fixed; top: 20px; right: 20px;
     background: rgba(255, 255, 255, 0.95); padding: 6px 14px;
@@ -290,6 +257,13 @@
     transition: all 0.2s; font-family: inherit;
   }
   .modal-confirm:hover { box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4); }
+  .defaults-view { display: flex; flex-direction: column; gap: 12px; }
+  .modal-back {
+    width: 100%; padding: 10px; font-size: 14px; font-weight: 600;
+    color: #689f38; background: #f1f8e9; border: 1px solid #c5e1a5;
+    border-radius: 10px; cursor: pointer; transition: all 0.2s; font-family: inherit;
+  }
+  .modal-back:hover { background: #e8f5e9; }
   .tag-preview { font-size: 15px; color: #689f38; min-height: 20px; }
 
   .history-item { border-bottom: 1px solid #f1f8e9; padding: 12px 2px; }
@@ -306,7 +280,6 @@
     .month-card input { width: 90px; font-size: 24px; }
     .unit-card { padding: 16px 18px; }
     .unit-title { font-size: 18px; min-width: 70px; }
-    .edit-btn { bottom: 20px; right: 20px; padding: 12px 22px; font-size: 14px; }
     .sync-indicator { right: 12px; top: 12px; font-size: 11px; padding: 5px 10px; }
     .header-icon { width: 54px; height: 54px; }
   }
@@ -424,7 +397,6 @@
   <svg viewBox="0 0 24 24"><circle cx="12" cy="12" fill="#fff59d" r="6"/><circle cx="12" cy="12" fill="#ffa726" r="2.5"/></svg>
 </div>
 
-<div class="status-indicator" id="statusIndicator"></div>
 <div class="sync-indicator" id="syncIndicator">已同步</div>
 
 <div class="container">
@@ -571,11 +543,6 @@
   </div>
 </div>
 
-<button class="edit-btn" id="editBtn" onclick="toggleEdit()">
-  <span id="editIcon">✎</span>
-  <span id="editText">修改数据</span>
-</button>
-
 <div class="modal-overlay" id="snackModal" onclick="closeSnackModalOnBackdrop(event)" style="display:none">
   <div class="modal">
     <div class="modal-header">
@@ -649,16 +616,26 @@
       <button class="modal-close" onclick="closeDefaultsModal()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="field-row"><label>吃饭</label><input id="defEat" type="number" min="0" step="1"></div>
-      <div class="field-row"><label>零食</label><input id="defSnack" type="number" min="0" step="1"></div>
-      <div class="field-row"><label>想干啥干啥</label><input id="defWant" type="number" min="0" step="1"></div>
-      <div class="field-row"><label>杂花</label><input id="defMisc" type="number" min="0" step="1"></div>
-      <div class="field-row"><label>本月</label><div style="font-size:18px;font-weight:800;color:#f57f17;"><span id="defMonth">0</span> 元</div></div>
-      <div class="modal-hint">
-        本月 = 以上四项之和（自动计算）。<br>
-        这些默认数据会在 <b>每月 1 号凌晨 4:00</b> 自动恢复，其他数值同时清零。
+      <div id="defaultsForm" class="defaults-view">
+        <div class="field-row"><label>吃饭</label><input id="defEat" type="number" min="0" step="1"></div>
+        <div class="field-row"><label>零食</label><input id="defSnack" type="number" min="0" step="1"></div>
+        <div class="field-row"><label>想干啥干啥</label><input id="defWant" type="number" min="0" step="1"></div>
+        <div class="field-row"><label>杂花</label><input id="defMisc" type="number" min="0" step="1"></div>
+        <div class="field-row"><label>本月</label><div style="font-size:18px;font-weight:800;color:#f57f17;"><span id="defMonth">0</span> 元</div></div>
+        <div class="modal-hint">
+          本月 = 以上四项之和（自动计算）。<br>
+          修改预算只会调整预算数字，<b>不会影响已记录的账单明细</b>。<br>
+          保存时可选择生效范围：仅本月 / 本月及以后 / 仅以后（下月 1 号凌晨 4:00 起按此预算自动恢复）。
+        </div>
+        <button class="modal-confirm" onclick="showApplyOptions()">保存默认数据</button>
       </div>
-      <button class="modal-confirm" onclick="confirmDefaults()">保存默认数据</button>
+      <div id="applyOptions" class="defaults-view" style="display:none">
+        <div class="modal-hint" style="color:#689f38">请选择这组预算的生效范围：</div>
+        <button class="modal-confirm" onclick="applyBudgets('month')">仅本月生效</button>
+        <button class="modal-confirm" onclick="applyBudgets('monthFuture')">本月及以后都生效</button>
+        <button class="modal-confirm" onclick="applyBudgets('future')">以后生效（不包含本月）</button>
+        <button class="modal-back" onclick="backToDefaultsForm()">返回修改</button>
+      </div>
     </div>
   </div>
 </div>
@@ -698,7 +675,6 @@
 
 
   let currentUsername = '';
-  let editing = false;
 
   // 账户默认数据：每月 1 号 04:00 重置时恢复
   let defaults = { ...FALLBACK_DEFAULTS };
@@ -776,7 +752,7 @@
     keys.forEach(k => {
       const input = el(ids[k]);
       if (!input) return;
-      const v = editing ? num(budgets[k]) : num(budgets[k]) - spent[k];
+      const v = num(budgets[k]) - spent[k];
       input.value = fmt(v);
       applyNegative(input, v);
     });
@@ -784,13 +760,8 @@
 
   function renderMonthCard() {
     const spent = currentSpent();
-    let v;
-    if (editing) {
-      v = num(budgets.eat) + num(budgets.snack) + num(budgets.want) + num(budgets.misc);
-    } else {
-      v = (num(budgets.eat) - spent.eat) + (num(budgets.snack) - spent.snack) +
-          (num(budgets.want) - spent.want) + (num(budgets.misc) - spent.misc);
-    }
+    const v = (num(budgets.eat) - spent.eat) + (num(budgets.snack) - spent.snack) +
+        (num(budgets.want) - spent.want) + (num(budgets.misc) - spent.misc);
     const mt = el('monthTotal');
     mt.value = fmt(v);
     applyNegative(mt, v);
@@ -1295,13 +1266,15 @@
     renderWantRecords(); saveData(); calculateAll();
   }
 
-  // ================= 默认数据 =================
+  // ================= 默认数据 / 预算设置 =================
   function openDefaultsModal() {
-    el('defEat').value = num(defaults.eat);
-    el('defSnack').value = num(defaults.snack);
-    el('defWant').value = num(defaults.want);
-    el('defMisc').value = num(defaults.misc);
+    // 预填本月预算，方便直接调整
+    el('defEat').value = num(budgets.eat);
+    el('defSnack').value = num(budgets.snack);
+    el('defWant').value = num(budgets.want);
+    el('defMisc').value = num(budgets.misc);
     updateDefaultsMonth();
+    switchDefaultsView('form');
     el('defaultsModal').style.display = 'flex';
   }
   function updateDefaultsMonth() {
@@ -1310,67 +1283,35 @@
   }
   function closeDefaultsModal() { el('defaultsModal').style.display = 'none'; }
   function closeDefaultsOnBackdrop(e) { if (e.target === el('defaultsModal')) closeDefaultsModal(); }
-  function confirmDefaults() {
-    defaults = {
+
+  function switchDefaultsView(view) {
+    el('defaultsForm').style.display = view === 'form' ? '' : 'none';
+    el('applyOptions').style.display = view === 'options' ? '' : 'none';
+  }
+  function showApplyOptions() { switchDefaultsView('options'); }
+  function backToDefaultsForm() { switchDefaultsView('form'); }
+
+  // scope: month=仅本月 | monthFuture=本月及以后 | future=仅以后
+  // 只调整预算数字，不触碰任何已记录的账单明细
+  function applyBudgets(scope) {
+    const vals = {
       eat: round2(el('defEat').value),
       snack: round2(el('defSnack').value),
       want: round2(el('defWant').value),
       misc: round2(el('defMisc').value)
     };
-    closeDefaultsModal();
-    if (confirm('已保存默认数据。\n\n是否同时把本月预算也改成这组数值？\n（点「取消」则只影响下个月的重置）')) {
-      budgets = { ...defaults };
-      renderAll();
+    if (scope === 'month' || scope === 'monthFuture') {
+      budgets = { ...vals };
     }
+    if (scope === 'monthFuture' || scope === 'future') {
+      defaults = { ...vals };
+    }
+    const msg = scope === 'month' ? '已应用到本月'
+      : (scope === 'monthFuture' ? '已应用到本月及以后' : '已保存，下月 1 号起生效');
     saveData();
-  }
-
-  // ================= 编辑模式（修改本月预算） =================
-  let statusTimer = null;
-  function showStatusToast(text, isEditing) {
-    const status = el('statusIndicator');
-    if (!status) return;
-    clearTimeout(statusTimer);
-    if (isEditing) status.classList.add('editing'); else status.classList.remove('editing');
-    status.textContent = text;
-    status.classList.add('show');
-    statusTimer = setTimeout(() => status.classList.remove('show'), 1600);
-  }
-
-  function toggleEdit() {
-    const body = document.body;
-    const btn = el('editBtn');
-    const icon = el('editIcon');
-    const text = el('editText');
-
-    if (!editing) {
-      editing = true;
-      body.classList.remove('locked');
-      btn.classList.add('editing');
-      icon.textContent = '✓';
-      text.textContent = '保存数据';
-      showStatusToast('编辑模式', true);
-      ['eatBudget', 'snackBudget', 'wantBudget', 'miscBudget'].forEach(id => el(id).removeAttribute('readonly'));
-      renderBudgetInputs();
-      renderMonthCard();
-      setSyncStatus('ok', '可修改本月预算');
-    } else {
-      editing = false;
-      budgets = {
-        eat: round2(el('eatBudget').value),
-        snack: round2(el('snackBudget').value),
-        want: round2(el('wantBudget').value),
-        misc: round2(el('miscBudget').value)
-      };
-      body.classList.add('locked');
-      btn.classList.remove('editing');
-      icon.textContent = '✎';
-      text.textContent = '修改数据';
-      showStatusToast('数据已锁定', false);
-      ['eatBudget', 'snackBudget', 'wantBudget', 'miscBudget'].forEach(id => el(id).setAttribute('readonly', 'readonly'));
-      saveData();
-      calculateAll();
-    }
+    renderAll();
+    closeDefaultsModal();
+    setSyncStatus('ok', msg);
   }
 
   // ================= 本地存储（纯前端单机版）=================
@@ -1590,17 +1531,6 @@
     if (e2) e2.addEventListener('input', () => {
       syncTodayEatFromInputs();   // 今日输入实时写入「当月每日明细」，月度扣减随之累计
       calculateAll();
-      scheduleAutoSave();
-    });
-  });
-
-  ['eatBudget', 'snackBudget', 'wantBudget', 'miscBudget'].forEach(id => {
-    const key = { eatBudget: 'eat', snackBudget: 'snack', wantBudget: 'want', miscBudget: 'misc' }[id];
-    const e2 = el(id);
-    if (e2) e2.addEventListener('input', () => {
-      if (!editing) return;
-      budgets[key] = num(e2.value);
-      renderMonthCard();
       scheduleAutoSave();
     });
   });
